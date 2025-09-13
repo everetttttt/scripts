@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# python 3.9.21
+
+# pip install matplotlib
 
 import matplotlib.pyplot as plt
 
@@ -170,4 +171,4 @@ plt.ylabel("Dollars ($)")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig('401k.png')
+plt.savefig('out/401k.png')
