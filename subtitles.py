@@ -12,6 +12,9 @@ import time
 
 from opensubtitlescom import OpenSubtitles
 
+# always run from the script's directory
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
 # configure logging
 logging.basicConfig(
     filename='out/subtitles.log',
@@ -102,12 +105,12 @@ def main() -> None:
                 continue
 
             filepath = os.path.join(dirpath, filename)
-            logging.info(filepath)
 
             srt_path = get_srt_filepath(filepath)
             if os.path.exists(srt_path):
-                logging.info('    SUCCESS: subtitle already exists\n')
                 continue
+
+            logging.info(filepath)
 
             if 'Movies' in dirpath:
                 movie_name = extract_movie_info(filepath)
