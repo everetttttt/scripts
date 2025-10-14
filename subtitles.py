@@ -5,6 +5,7 @@
 import logging
 import os
 import re
+import stat
 import sys
 import time
 
@@ -36,7 +37,23 @@ def get_api_key() -> tuple[str, str, str]:
     '''
     Get username, password, and api key for opensubtitles.com from ~/.opensubtitlesapirc
     '''
+    def api_key_help():
+        print(f'The contents should look like')
+        print(f'user=<username>')
+        print(f'pass=<password>')
+        print(f'key=<api key>')
+        sys.exit(1)
+
     rc_path = os.path.expanduser('~/.opensubtitlesapirc')
+    if not os.path.exists(rc_path):
+        print(f'{rc_path} does not exist! It must contain the user, pass, and key')
+        api_key_help()
+
+    # check file permissions
+    st = os.stat(rc_path)
+    if st.st_mode & 0o777 != 0o600:
+        print(f'Error: {rc_path} must have 600 permissions (owner read/write only). Try `chmod 600 {rc_path}`')
+        api_key_help()
     user = None
     passwd = None
     apikey = None
@@ -52,7 +69,7 @@ def get_api_key() -> tuple[str, str, str]:
 
         if user is None or passwd is None or apikey is None:
             print(f'Could not find all user, pass, and key in {rc_path}')
-            sys.exit(1)
+            api_key_help()
         return user, passwd, apikey
     except Exception as e:
         print(f'Could not read API key from {rc_path}: {e}')
