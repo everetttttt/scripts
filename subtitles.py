@@ -51,29 +51,26 @@ def get_api_key() -> tuple[str, str, str]:
 
     # check file permissions
     st = os.stat(rc_path)
-    if st.st_mode & 0o777 != 0o600:
-        print(f'Error: {rc_path} must have 600 permissions (owner read/write only). Try `chmod 600 {rc_path}`')
+    if stat.S_IMODE(st.st_mode) not in (0o600, 0o400):
+        print(f'Error: {rc_path} must have 600 or 400 permissions (owner read/write only). Try `chmod 600 {rc_path}`')
         api_key_help()
+
     user = None
     passwd = None
     apikey = None
-    try:
-        with open(rc_path, 'r') as f:
-            for line in f:
-                if line.startswith('user='):
-                    user = line.split('=', 1)[1].strip()
-                elif line.startswith('pass='):
-                    passwd = line.split('=', 1)[1].strip()
-                elif line.startswith('key='):
-                    apikey = line.split('=', 1)[1].strip()
+    with open(rc_path, 'r') as f:
+        for line in f:
+            if line.startswith('user='):
+                user = line.split('=', 1)[1].strip()
+            elif line.startswith('pass='):
+                passwd = line.split('=', 1)[1].strip()
+            elif line.startswith('key='):
+                apikey = line.split('=', 1)[1].strip()
 
-        if user is None or passwd is None or apikey is None:
-            print(f'Could not find all user, pass, and key in {rc_path}')
-            api_key_help()
-        return user, passwd, apikey
-    except Exception as e:
-        print(f'Could not read API key from {rc_path}: {e}')
-        sys.exit(1)
+    if user is None or passwd is None or apikey is None:
+        print(f'Could not find all user, pass, and key in {rc_path}')
+        api_key_help()
+    return user, passwd, apikey
 
 
 def is_video_file(filename:str) -> bool:
@@ -175,19 +172,19 @@ def main() -> None:
             logging.info(f'\n[{os.path.relpath(dirpath, search_root)}] looks good')
         else:
             logging.info(f'\n[{os.path.relpath(dirpath, search_root)}] status')
-            logging.info(f'  {'Filename':40} | {'Extracted name':30} | {'Result'}')
+            logging.info(f'  {"Filename":40} | {"Extracted name":30} | {"Result"}')
             
             for element in table:
                 filepath = element['filepath']
                 has_sub = element['has_sub']
-                if has_sub == True:
+                if has_sub:
                     continue
 
                 if 'Movies' in filepath:
                     movie_name = extract_movie_info(filepath)
                     log_string = movie_name
                     if not movie_name:
-                        logging.info(f'  {os.path.relpath(filepath, dirpath):40} | {'':30} | Failed to extract movie name')
+                        logging.info(f'  {os.path.relpath(filepath, dirpath):40} | {"":30} | Failed to extract movie name')
                         continue
 
                     try:
@@ -203,7 +200,7 @@ def main() -> None:
                 else: # is a show
                     show_name, season, episode = extract_show_info(filepath)
                     if not show_name or not season or not episode:
-                        logging.info(f'  {os.path.relpath(filepath, dirpath):40} | {'':30} | Failed to extract show name/season/episode')
+                        logging.info(f'  {os.path.relpath(filepath, dirpath):40} | {"":30} | Failed to extract show name/season/episode')
                         continue
                     log_string = f'{show_name} S{season}E{episode}'
 
