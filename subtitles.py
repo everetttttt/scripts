@@ -122,7 +122,8 @@ def main() -> None:
         print(f'Error: {search_root} is not a directory')
         sys.exit(1)
 
-    logging.info(f'\n\n==== Subtitle check started at {time.strftime('%Y-%m-%d %H:%M:%S')} ====')
+    start_time = time.strftime('%Y-%m-%d %H:%M:%S')
+    logging.info(f'==== Subtitle check started at {start_time} ====')
     logging.info(f'Searching for subtitles in {search_root}')
 
     USER, PASS, API_KEY = get_api_key()
@@ -168,11 +169,9 @@ def main() -> None:
     # now we go through the elements that we saved as not having subs
     # log them and attempt to retrieve subtitles
     for dirpath, (all_good, table) in dir_status.items():
-        if all_good:
-            logging.info(f'\n[{os.path.relpath(dirpath, search_root)}] looks good')
-        else:
-            logging.info(f'\n[{os.path.relpath(dirpath, search_root)}] status')
-            logging.info(f'  {"Filename":40} | {"Extracted name":30} | {"Result"}')
+        if not all_good:
+            logging.info(f'  {os.path.relpath(dirpath, search_root)}')
+            logging.info(f'      {"Filename":40} | {"Extracted name":30} | {"Result"}')
             
             for element in table:
                 filepath = element['filepath']
@@ -184,7 +183,7 @@ def main() -> None:
                     movie_name = extract_movie_info(filepath)
                     log_string = movie_name
                     if not movie_name:
-                        logging.info(f'  {os.path.relpath(filepath, dirpath):40} | {"":30} | Failed to extract movie name')
+                        logging.info(f'      {os.path.relpath(filepath, dirpath):40} | {"":30} | Failed to extract movie name')
                         continue
 
                     try:
@@ -194,13 +193,13 @@ def main() -> None:
                             languages='en'
                         )
                     except Exception as e:
-                        logging.info(f'  {os.path.relpath(filepath, dirpath):40} | {log_string:30} | Failed API query: {e}')
+                        logging.info(f'      {os.path.relpath(filepath, dirpath):40} | {log_string:30} | Failed API query: {e}')
                         continue
 
                 else: # is a show
                     show_name, season, episode = extract_show_info(filepath)
                     if not show_name or not season or not episode:
-                        logging.info(f'  {os.path.relpath(filepath, dirpath):40} | {"":30} | Failed to extract show name/season/episode')
+                        logging.info(f'      {os.path.relpath(filepath, dirpath):40} | {"":30} | Failed to extract show name/season/episode')
                         continue
                     log_string = f'{show_name} S{season}E{episode}'
 
@@ -213,23 +212,26 @@ def main() -> None:
                             languages='en',
                         )
                     except Exception as e:
-                        logging.info(f'  {os.path.relpath(filepath, dirpath):40} | {log_string:30} | Failed API query: {e}')
+                        logging.info(f'      {os.path.relpath(filepath, dirpath):40} | {log_string:30} | Failed API query: {e}')
                         continue
                     
                 if not results or not results.data:
-                    logging.info(f'  {os.path.relpath(filepath, dirpath):40} | {log_string:30} | No subtitles found!')
+                    logging.info(f'      {os.path.relpath(filepath, dirpath):40} | {log_string:30} | No subtitles found!')
                     continue
 
                 # download the first subtitle result
                 try:
                     srt_path = get_srt_filepath(filepath)
                     client.download_and_save(results.data[0], filename=srt_path)
-                    logging.info(f'  {os.path.relpath(filepath, dirpath):40} | {log_string:30} | Successfully downloaded')
+                    logging.info(f'      {os.path.relpath(filepath, dirpath):40} | {log_string:30} | Successfully downloaded')
                 except Exception as e:
-                    logging.info(f'  {os.path.relpath(filepath, dirpath):40} | {log_string:30} | Failed to download: {e}')
+                    logging.info(f'      {os.path.relpath(filepath, dirpath):40} | {log_string:30} | Failed to download: {e}')
                     continue
                 
                 time.sleep(5) # be nice to the api
+    end_time = time.strftime('%Y-%m-%d %H:%M:%S')
+    logging.info(f'subtitle check that started at {start_time} ended at {end_time}')
+    logging.info(f'==== Subtitle check ended at {end_time} ====\n\n')
 
 if __name__ == '__main__':
     main()
