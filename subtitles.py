@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-# pip install opensubtitlescom
-
 # will need to put api key in ~/.opensubtitlesapirc
 
 import logging
@@ -57,11 +55,14 @@ def get_api_key() -> str:
         print(f'Could not read API key from {rc_path}: {e}')
         sys.exit(1)
 
+
 def get_is_video_file(filename:str) -> bool:
-    return filename.lower().endswith(VIDEO_EXTENSIONS)
+    return any(filename.lower().endswith(ext) for ext in VIDEO_EXTENSIONS)
+
 
 def get_srt_filepath(filepath:str) -> str:
     return os.path.splitext(filepath)[0] + SRT_EXTENSION
+
 
 def extract_show_info(filepath:str) -> tuple[str, int, int]:
     '''try to get show name, season, and episode'''
@@ -78,6 +79,7 @@ def extract_show_info(filepath:str) -> tuple[str, int, int]:
         show_name = os.path.basename(os.path.dirname(dirname))
         return show_name, season, episode
     return None, None, None
+
 
 def extract_movie_info(filepath:str) -> str:
     '''use parent directory or filename as movie name'''
@@ -148,7 +150,7 @@ def main() -> None:
                     logging.error(f'    FAILED: api query failed for {show_name} s{season} e{episode}:\n        {e}')
                     return
                 
-            if not results or not results['data']:
+            if not results or not results.data:
                 logging.warning(f'    No subtitles found!')
                 continue
 
