@@ -10,14 +10,11 @@ import time
 
 from opensubtitlescom import OpenSubtitles
 
-# always run from the script's directory
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
 # configure logging
 logging.basicConfig(
     filename='out/subtitles.log',
     level=logging.INFO,
-    format='%(asctime)s %(levelname)s: %(message)s',
+    format='%(message)s',
 )
 
 VIDEO_EXTENSIONS = [
@@ -56,7 +53,7 @@ def get_api_key() -> str:
         sys.exit(1)
 
 
-def get_is_video_file(filename:str) -> bool:
+def is_video_file(filename:str) -> bool:
     return any(filename.lower().endswith(ext) for ext in VIDEO_EXTENSIONS)
 
 
@@ -94,75 +91,120 @@ def extract_movie_info(filepath:str) -> str:
         return movie_name
     return None
 
+
 def main() -> None:
+    if len(sys.argv) < 2:
+        print(f'Usage: {os.path.relpath(__file__)} <directory>')
+        sys.exit(1)
+
+    search_root = sys.argv[1]
+    if not os.path.isdir(search_root):
+        print(f'Error: {search_root} is not a directory')
+        sys.exit(1)
+
+    logging.info(f'\n\n==== Subtitle check started at {time.strftime('%Y-%m-%d %H:%M:%S')} ====')
+    logging.info(f'Searching for subtitles in {search_root}')
+
     USER, PASS, API_KEY = get_api_key()
-    client = OpenSubtitles(api_key=API_KEY)
-    # client.login(username=USER, password=PASS)
-    root_dir = os.getcwd()
-    logging.info(f'Starting subtitle search in {root_dir}')
+    client = OpenSubtitles(user_agent='SubtitleGrabber', api_key=API_KEY)
+    client.login(username=USER, password=PASS)
 
-    for dirpath, _, filenames in os.walk(root_dir):
+    dir_status = {}
+
+    # must go bottom up
+    for dirpath, subdirs, filenames in os.walk(search_root, topdown=False):
+        all_good = True
+        table = []
+
+        # check all video files in this dir
         for filename in filenames:
-            if not get_is_video_file(filename):
+            if not is_video_file(filename):
                 continue
-
             filepath = os.path.join(dirpath, filename)
-
             srt_path = get_srt_filepath(filepath)
-            if os.path.exists(srt_path):
-                continue
+            has_sub = os.path.exists(srt_path)
+            if not has_sub:
+                all_good = False
 
-            logging.info(filepath)
+            table.append({
+                'filepath': filepath,
+                'has_sub': has_sub,
+            })
 
-            if 'Movies' in dirpath:
-                movie_name = extract_movie_info(filepath)
-                if not movie_name:
-                    logging.warning('    FAILED: could not extract movie name')
-                    continue
+        # check subdir status. this is why we must go bottom up
+        for subdir in subdirs:
+            subdir_path = os.path.join(dirpath, subdir)
+            sub_good, _ = dir_status.get(subdir_path, (True, []))
+            if not sub_good:
+                all_good = False
+        
+        dir_status[dirpath] = (all_good, table)
 
-                logging.info(f'    Searching subtitles for movie {movie_name}...')
-                try:
-                    results = client.search(
-                        query=movie_name, 
-                        type='movie', 
-                        languages='en'
-                    )
-                except Exception as e:
-                    logging.error(f'    FAILED: api query failed for {movie_name}:\n        {e}')
-                    return
-
-            else: # is a show
-                show_name, season, episode = extract_show_info(filepath)
-                if not show_name or not season or not episode:
-                    logging.warning('    FAILED: could not extract show info')
-                    continue
-
-                logging.info(f'    Searching subtitles for show {show_name}, s{season} e{episode}')
-                try:
-                    results = client.search(
-                        query=show_name,
-                        season_number=season,
-                        episode_number=episode,
-                        type='episode',
-                        languages='en',
-                    )
-                except Exception as e:
-                    logging.error(f'    FAILED: api query failed for {show_name} s{season} e{episode}:\n        {e}')
-                    return
-                
-            if not results or not results.data:
-                logging.warning(f'    No subtitles found!')
-                continue
-
-            # download the first subtitle result
-            try:
-                client.download_and_save(results.data[0], filename=srt_path)
-                logging.info(f'    SUCCESS: downloaded subtitles')
-            except Exception as e:
-                logging.error(f'    FAILED: failed to download subtitles: {e}')
-                return
+    # now we go through the elements that we saved as not having subs
+    # log them and attempt to retrieve subtitles
+    for dirpath, (all_good, table) in dir_status.items():
+        if all_good:
+            logging.info(f'\n[{dirpath}] looks good')
+        else:
+            logging.info(f'\n[{dirpath}] status')
+            logging.info(f'  {'Filename':40} | {'Extracted name':30} | {'Result'}')
             
-            time.sleep(5) # be nice to the api
+            for element in table:
+                filepath = element['filepath']
+                has_sub = element['has_sub']
+                if has_sub == True:
+                    continue
+
+                if 'Movies' in filepath:
+                    movie_name = extract_movie_info(filepath)
+                    log_string = movie_name
+                    if not movie_name:
+                        logging.info(f'  {filepath:40} | {'':30} | Failed to extract movie name')
+                        continue
+
+                    try:
+                        results = client.search(
+                            query=movie_name, 
+                            type='movie', 
+                            languages='en'
+                        )
+                    except Exception as e:
+                        logging.info(f'  {filepath:40} | {log_string:30} | Failed API query: {e}')
+                        continue
+
+                else: # is a show
+                    show_name, season, episode = extract_show_info(filepath)
+                    if not show_name or not season or not episode:
+                        logging.info(f'  {filepath:40} | {'':30} | Failed to extract show name/season/episode')
+                        continue
+                    log_string = f'{show_name} S{season}E{episode}'
+
+                    try:
+                        results = client.search(
+                            query=show_name,
+                            season_number=season,
+                            episode_number=episode,
+                            type='episode',
+                            languages='en',
+                        )
+                    except Exception as e:
+                        logging.info(f'  {filepath:40} | {log_string:30} | Failed API query: {e}')
+                        continue
+                    
+                if not results or not results.data:
+                    logging.info(f'  {filepath:40} | {log_string:30} | No subtitles found!')
+                    continue
+
+                # download the first subtitle result
+                try:
+                    srt_path = get_srt_filepath(filepath)
+                    client.download_and_save(results.data[0], filename=srt_path)
+                    logging.info(f'  {filepath:40} | {log_string:30} | Successfully downloaded')
+                except Exception as e:
+                    logging.info(f'  {filepath:40} | {log_string:30} | Failed to download: {e}')
+                    continue
+                
+                time.sleep(5) # be nice to the api
 
 if __name__ == '__main__':
     main()
