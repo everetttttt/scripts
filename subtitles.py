@@ -119,6 +119,11 @@ def main() -> None:
 
     # must go bottom up
     for dirpath, subdirs, filenames in os.walk(search_root, topdown=False):
+        # skip if an ignore subtitle check file exists
+        if '.ignoresubtitlecheck' in filenames:
+            dir_status[dirpath] = (True, [])
+            continue
+        
         all_good = True
         table = []
 
