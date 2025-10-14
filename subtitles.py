@@ -81,35 +81,37 @@ def get_srt_filepath(filepath:str) -> str:
     return os.path.splitext(filepath)[0] + SRT_EXTENSION
 
 
-def extract_show_info(filepath:str) -> tuple[str, int, int]:
-    '''try to get show name, season, and episode from a filepath'''
-    basename = os.path.basename(filepath)
-    dirname = os.path.dirname(filepath)
+def extract_show_info(search_root:str, filepath:str) -> tuple[str, int, int]:
+    '''
+    try to get show name, season, and episode from a filepath
+    show name is expected to be one level below search_root
+    season and episode are expected to be in the filename
+    '''
+    relpath = os.path.relpath(filepath, search_root)
+    show_name = os.path.normpath(relpath).split(os.sep)[0]
 
-    match = re.search(r'(S?(\d{1,2}))[ ._-]*E(\d{1,2})', basename, re.IGNORECASE)
+    match = re.search(r'(S?(\d{1,2}))[ ._-]*E(\d{1,2})', os.path.basename(filepath), re.IGNORECASE)
     if not match:
-        match = re.search(r'(S?(\d{1,2}))[ ._-]*E(\d{1,2})', dirname, re.IGNORECASE)
+        match = re.search(r'(S?(\d{1,2}))[ ._-]*E(\d{1,2})', os.path.dirname(filepath), re.IGNORECASE)
+    season = int(match.group(2)) if match else None
+    episode = int(match.group(3)) if match else None
 
-    if match:
-        season = int(match.group(2))
-        episode = int(match.group(3))
-        show_name = os.path.basename(os.path.dirname(dirname))
-        return show_name, season, episode
-    return None, None, None
+    return show_name, season, episode
 
 
-def extract_movie_info(filepath:str) -> str:
-    '''use parent directory or filename as movie name'''
-    dirname = os.path.dirname(filepath)
-    if 'Movies' in dirname:
-        movie_name = os.path.splitext(os.path.basename(filepath))[0]
-        # remove common tags (year, resolution, etc)
-        movie_name = re.sub(r'\b(19|20)\d{2}\b', '', movie_name)
-        movie_name = re.sub(r'\b(720p|1080p|2160p|x264|x265|BluRay|WEBRip|HDRip|DVDRip)\b', '', movie_name, flags=re.IGNORECASE)
-        movie_name = re.sub(r'[\.\-_]', ' ', movie_name)
-        movie_name = movie_name.strip()
-        return movie_name
-    return None
+def extract_movie_info(search_root:str, filepath:str) -> str:
+    '''
+    use parent directory as movie name
+    parent directory is expected to be in the form of "Name (year)"
+    '''
+    relpath = os.path.relpath(filepath, search_root)
+    if 'Movies' not in relpath:
+        return None
+    relpath = os.path.relpath(relpath, 'Movies')
+    movie_name = os.path.normpath(relpath).split(os.sep)[0]
+    movie_name = movie_name.split('(')[0].strip()
+
+    return movie_name
 
 
 def main() -> None:
@@ -133,7 +135,7 @@ def main() -> None:
     dir_status = {}
 
     # must go bottom up
-    for dirpath, subdirs, filenames in os.walk(search_root, topdown=False):
+    for dirpath, _, filenames in os.walk(search_root):
         # skip if an ignore subtitle check file exists
         if '.ignoresubtitlecheck' in filenames:
             dir_status[dirpath] = (True, [])
@@ -156,13 +158,6 @@ def main() -> None:
                 'filepath': filepath,
                 'has_sub': has_sub,
             })
-
-        # check subdir status. this is why we must go bottom up
-        for subdir in subdirs:
-            subdir_path = os.path.join(dirpath, subdir)
-            sub_good, _ = dir_status.get(subdir_path, (True, []))
-            if not sub_good:
-                all_good = False
         
         dir_status[dirpath] = (all_good, table)
 
@@ -171,7 +166,6 @@ def main() -> None:
     for dirpath, (all_good, table) in dir_status.items():
         if not all_good:
             logging.info(f'  {os.path.relpath(dirpath, search_root)}')
-            logging.info(f'      {"Filename":40} | {"Extracted name":30} | {"Result"}')
             
             for element in table:
                 filepath = element['filepath']
@@ -180,7 +174,7 @@ def main() -> None:
                     continue
 
                 if 'Movies' in filepath:
-                    movie_name = extract_movie_info(filepath)
+                    movie_name = extract_movie_info(search_root, filepath)
                     log_string = movie_name
                     if not movie_name:
                         logging.info(f'      {os.path.relpath(filepath, dirpath):40} | {"":30} | Failed to extract movie name')
@@ -197,7 +191,7 @@ def main() -> None:
                         continue
 
                 else: # is a show
-                    show_name, season, episode = extract_show_info(filepath)
+                    show_name, season, episode = extract_show_info(search_root, filepath)
                     if not show_name or not season or not episode:
                         logging.info(f'      {os.path.relpath(filepath, dirpath):40} | {"":30} | Failed to extract show name/season/episode')
                         continue
