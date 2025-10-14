@@ -1,6 +1,18 @@
 #!/usr/bin/env python3
 
 # will need to put api key in ~/.opensubtitlesapirc
+# call as ./subtitles.py <directory>
+# the directory provided should have only directories in it
+# the directories should be show names or "Movies"
+# the show directories can have anything in them, 
+# but the files themselves should have season and episode info in them
+# the movie directory should have movie directories in it
+# the movie directories should be named "Name (year)"
+# with the movie file inside
+
+# you can skip any directory by putting a file named .ignoresubtitlecheck in it
+
+
 
 import logging
 import os
@@ -176,7 +188,7 @@ def main() -> None:
                 if 'Movies' in filepath:
                     movie_name = extract_movie_info(search_root, filepath)
                     log_string = movie_name
-                    if not movie_name:
+                    if movie_name is None:
                         logging.info(f'      {os.path.relpath(filepath, dirpath):40} | {"":30} | Failed to extract movie name')
                         continue
 
@@ -192,7 +204,7 @@ def main() -> None:
 
                 else: # is a show
                     show_name, season, episode = extract_show_info(search_root, filepath)
-                    if not show_name or not season or not episode:
+                    if show_name is None or season is None or episode is None:
                         logging.info(f'      {os.path.relpath(filepath, dirpath):40} | {"":30} | Failed to extract show name/season/episode')
                         continue
                     log_string = f'{show_name} S{season}E{episode}'
