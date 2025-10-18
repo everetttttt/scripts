@@ -25,9 +25,7 @@ from opensubtitlescom import OpenSubtitles
 
 
 # configure logging
-os.makedirs('out', exist_ok=True)
 logging.basicConfig(
-    filename='out/subtitles.log',
     level=logging.INFO,
     format='%(message)s',
 )
