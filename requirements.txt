@@ -1,2 +1,5 @@
+geopy==2.4.1
 matplotlib==3.10.1
 opensubtitlescom==0.1.5
+pytz==2025.2
+timezonefinder==8.1.0
