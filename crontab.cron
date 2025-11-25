@@ -1,0 +1,8 @@
+# clean trash daily at 2am
+0 2 * * * /home/everett/scripts/clean_trash.sh
+
+# check disk usage daily at 8am
+0 8 * * * /home/everett/scripts/check_disk.sh
+
+# run btrfs scrub monthly, which verifies checksums for data and metadata
+0 3 1 * * sudo btrfs scrub start /home

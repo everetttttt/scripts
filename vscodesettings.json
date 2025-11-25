@@ -1,0 +1,13 @@
+{
+    "workbench.startupEditor": "none",
+    "python.defaultInterpreterPath": "/bin/python",
+    "terminal.integrated.stickyScroll.enabled": false,
+    "editor.stickyScroll.enabled": false,
+    "chat.agent.enabled": false,
+    "accessibility.verbosity.inlineCompletions": false,
+    "editor.inlineSuggest.edits.allowCodeShifting": "never",
+    "github.copilot.enable": {
+        "*": false
+    },
+    "update.showReleaseNotes": false
+}

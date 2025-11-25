@@ -1,0 +1,6 @@
+com.discordapp.Discord
+com.github.iwalton3.jellyfin-media-player
+io.github.celluloid_player.Celluloid
+org.gnome.Extensions
+org.jellyfin.JellyfinServer
+org.qbittorrent.qBittorrent
